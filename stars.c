@@ -27,6 +27,10 @@
 // Compile under MSYS:
 //    windres resource.rc -o resource.o
 //    gcc stars.c resource.o -o stars.exe -lgdi32 -mwindows
+//
+// Compile under Visual Studio Build Tools:
+//    rc resource.rc
+//    cl stars.c resource.res user32.lib gdi32.lib shell32.lib /link /SUBSYSTEM:WINDOWS
 
 
 #include <windows.h>
