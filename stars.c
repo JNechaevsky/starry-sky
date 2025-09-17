@@ -122,7 +122,7 @@ void create_default_settings_file(const char *filename)
         fprintf(file, "BRIGHTNESS_STEP 15\n\n");
         fprintf(file, "# Use colored stars (1 = yes, 0 = grayscale)\n");
         fprintf(file, "COLORED_STARS 1\n\n");
-        fprintf(file, "# Draw large stars as small squares (1 = yes, 0 = single pixel)\n");
+        fprintf(file, "# Define star size (0 = single pixel, 1 or higher = bigger squares)\n");
         fprintf(file, "BIG_STARS 1\n");
         fclose(file);
     }
@@ -169,7 +169,7 @@ void check_config_variables(void)
     DELAY           = BETWEEN(0, 1000,     DELAY);
     BRIGHTNESS_STEP = BETWEEN(1, 255,      BRIGHTNESS_STEP);
     COLORED_STARS   = BETWEEN(0, 1,        COLORED_STARS);
-    BIG_STARS       = BETWEEN(0, 1,        BIG_STARS);
+    BIG_STARS       = BETWEEN(0, 4,        BIG_STARS);
 }
 
 // Clear screen
@@ -203,7 +203,9 @@ void draw_stars(HDC hdc, Star stars[], int count)
 
         if (BIG_STARS)
         {
-            RECT star_rect = {stars[i].x, stars[i].y, stars[i].x + 2, stars[i].y + 2};
+            const int big_star = (BIG_STARS << 1);
+
+            RECT star_rect = {stars[i].x, stars[i].y, stars[i].x + big_star, stars[i].y + big_star};
             HBRUSH star_brush = CreateSolidBrush(star_color);
             FillRect(hdc, &star_rect, star_brush);
             DeleteObject(star_brush);
