@@ -274,6 +274,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             PostQuitMessage(0);
             break;
 
+        case WM_SETCURSOR:
+            // In the client area, set the arrow cursor ourselves (if not fullscreen)
+            if (!is_fullscreen && LOWORD(lParam) == HTCLIENT)
+            {
+                SetCursor(LoadCursor(NULL, IDC_ARROW));
+                return TRUE; // handled
+            }
+            // Fall through to default for non-client areas
+            // break;
+
         default:
             return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
