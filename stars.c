@@ -359,6 +359,26 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 // WinMain
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+    // [JN] Create console output window if "-console" parameter is present.
+    if (M_CheckParm ("-console"))
+    {
+        // Allocate console.
+        AllocConsole();
+        SetConsoleTitle("Console");
+
+        // Head text outputs.
+        if (!freopen("CONIN$", "r", stdin))
+            fprintf(stderr, "Failed to redirect stdin\n");
+        if (!freopen("CONOUT$", "w", stdout))
+            fprintf(stderr, "Failed to redirect stdout\n");
+        if (!freopen("CONOUT$", "w", stderr))
+            fprintf(stderr, "Failed to redirect stderr\n");
+
+        // Set a proper codepage.
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+    }
+
     const char CLASS_NAME[] = "DynamicStarrySky";
 
     WNDCLASSEX wc = {0};
@@ -400,26 +420,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     load_settings_from_file("stars.ini"); // Load settings
     check_config_variables(); // Make sure that setting are valid
-
-    // [JN] Create console output window if "-console" parameter is present.
-    if (M_CheckParm ("-console"))
-    {
-        // Allocate console.
-        AllocConsole();
-        SetConsoleTitle("Console");
-
-        // Head text outputs.
-        if (!freopen("CONIN$", "r", stdin))
-            fprintf(stderr, "Failed to redirect stdin\n");
-        if (!freopen("CONOUT$", "w", stdout))
-            fprintf(stderr, "Failed to redirect stdout\n");
-        if (!freopen("CONOUT$", "w", stderr))
-            fprintf(stderr, "Failed to redirect stderr\n");
-
-        // Set a proper codepage.
-        SetConsoleOutputCP(CP_UTF8);
-        SetConsoleCP(CP_UTF8);
-    }
 
     while (1)
     {
