@@ -57,6 +57,54 @@ Star stars[300];
 RECT saved_rect = {0};      // Saved window size
 BOOL is_fullscreen = FALSE; // Fullscreen mode indicator
 
+// -----------------------------------------------------------------------------
+// M_CheckParm
+//  [PN] Simple command-line checker for WinMain-based apps
+//  Returns the 1-based index of the parameter if found, 0 otherwise.
+//  Accepts UTF-8 `check` and compares case-insensitively against wide argv.
+// -----------------------------------------------------------------------------
+
+static int M_CheckParm(const char *check)
+{
+    int argc = 0;
+    LPWSTR *argvw = CommandLineToArgvW(GetCommandLineW(), &argc);
+    if (!argvw)
+    {
+        return 0;
+    }
+
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, check, -1, NULL, 0);
+    if (wlen <= 0)
+    {
+        LocalFree(argvw);
+        return 0;
+    }
+
+    wchar_t *wcheck = (wchar_t *)malloc((size_t)wlen * sizeof(wchar_t));
+    if (!wcheck)
+    {
+        LocalFree(argvw);
+        return 0;
+    }
+
+    MultiByteToWideChar(CP_UTF8, 0, check, -1, wcheck, wlen);
+
+    int found = 0; // 0 means not found
+    for (int i = 1; i < argc; i++)
+    {
+        if (_wcsicmp(argvw[i], wcheck) == 0)
+        {
+            // Return 1-based index like the original function
+            found = i;
+            break;
+        }
+    }
+
+    free(wcheck);
+    LocalFree(argvw);
+    return found;
+}
+
 // Function to create ini file with default settings
 void create_default_settings_file(const char *filename)
 {
@@ -334,6 +382,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     SetCursor(LoadCursor(NULL, IDC_ARROW));
 
     load_settings_from_file("stars.ini"); // Load settings
+
+    // [JN] Create console output window if "-console" parameter is present.
+    if (M_CheckParm ("-console"))
+    {
+        // Allocate console.
+        AllocConsole();
+        SetConsoleTitle("Console");
+
+        // Head text outputs.
+        if (!freopen("CONIN$", "r", stdin))
+            fprintf(stderr, "Failed to redirect stdin\n");
+        if (!freopen("CONOUT$", "w", stdout))
+            fprintf(stderr, "Failed to redirect stdout\n");
+        if (!freopen("CONOUT$", "w", stderr))
+            fprintf(stderr, "Failed to redirect stderr\n");
+
+        // Set a proper codepage.
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+    }
 
     while (1)
     {
