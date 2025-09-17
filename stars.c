@@ -43,6 +43,9 @@ typedef struct
     COLORREF color;        // Star color
 } Star;
 
+#define BETWEEN(l, u, x) (((x) < (l)) ? (l) : ((x) > (u)) ? (u) : (x))
+#define MAXSTARS 500
+
 // Parameters loaded from ini file
 int NUM_STARS = 100;       // Number of stars
 int DELAY = 100;           // Delay in ms
@@ -53,7 +56,7 @@ int BIG_STARS = 1;         // Large stars
 // Global variables for window size
 int window_width = 800;
 int window_height = 600;
-Star stars[300];
+Star stars[MAXSTARS];
 RECT saved_rect = {0};      // Saved window size
 BOOL is_fullscreen = FALSE; // Fullscreen mode indicator
 
@@ -153,6 +156,20 @@ void load_settings_from_file(const char *filename)
     }
 
     fclose(file);
+}
+
+// -----------------------------------------------------------------------------
+// check_config_variables
+//  [JN] Check for safe limits of config file variables.
+// -----------------------------------------------------------------------------
+
+void check_config_variables(void)
+{
+    NUM_STARS       = BETWEEN(0, MAXSTARS, NUM_STARS);
+    DELAY           = BETWEEN(0, 1000,     DELAY);
+    BRIGHTNESS_STEP = BETWEEN(1, 255,      BRIGHTNESS_STEP);
+    COLORED_STARS   = BETWEEN(0, 1,        COLORED_STARS);
+    BIG_STARS       = BETWEEN(0, 1,        BIG_STARS);
 }
 
 // Clear screen
@@ -382,6 +399,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     SetCursor(LoadCursor(NULL, IDC_ARROW));
 
     load_settings_from_file("stars.ini"); // Load settings
+    check_config_variables(); // Make sure that setting are valid
 
     // [JN] Create console output window if "-console" parameter is present.
     if (M_CheckParm ("-console"))
