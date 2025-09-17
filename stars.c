@@ -30,6 +30,7 @@
 
 
 #include <windows.h>
+#include <shellapi.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -122,7 +123,7 @@ void create_default_settings_file(const char *filename)
         fprintf(file, "BRIGHTNESS_STEP 15\n\n");
         fprintf(file, "# Use colored stars (1 = yes, 0 = grayscale)\n");
         fprintf(file, "COLORED_STARS 1\n\n");
-        fprintf(file, "# Define star size (0 = single pixel, 1 or higher = bigger squares)\n");
+        fprintf(file, "# Define star size (0 = 1x1, 1 = 2x2, 2 = 4x4, etc.)\n");
         fprintf(file, "BIG_STARS 1\n");
         fclose(file);
     }
@@ -186,8 +187,26 @@ void draw_stars(HDC hdc, Star stars[], int count)
 {
     for (int i = 0; i < count; i++)
     {
-        COLORREF star_color;
+        // If we are about to extinguish, paint black to erase the last faint pixel
+        if (stars[i].brightness <= BRIGHTNESS_STEP)
+        {
+            // If you use BIG_STARS as a size (0=1x1, 1=2x2, 2=4x4...), compute size:
+            int size = (BIG_STARS > 0) ? (1 << BIG_STARS) : 1;
 
+            if (size > 1)
+            {
+                RECT star_rect = { stars[i].x, stars[i].y, stars[i].x + size, stars[i].y + size };
+                HBRUSH black = (HBRUSH)GetStockObject(BLACK_BRUSH);
+                FillRect(hdc, &star_rect, black);
+            }
+            else
+            {
+                SetPixel(hdc, stars[i].x, stars[i].y, RGB(0, 0, 0));
+            }
+            continue; // skip normal drawing for this star on this frame
+        }
+
+        COLORREF star_color;
         if (COLORED_STARS)
         {
             int r = GetRValue(stars[i].color) * stars[i].brightness / 255;
@@ -201,20 +220,21 @@ void draw_stars(HDC hdc, Star stars[], int count)
             star_color = RGB(gray, gray, gray);
         }
 
-        if (BIG_STARS)
+        // If BIG_STARS encodes size (0=1x1, 1=2x2, 2=4x4, etc.)
+        int size = (BIG_STARS > 0) ? (1 << BIG_STARS) : 1;
+        if (size > 1)
         {
-            const int big_star = (BIG_STARS << 1);
-
-            RECT star_rect = {stars[i].x, stars[i].y, stars[i].x + big_star, stars[i].y + big_star};
-            HBRUSH star_brush = CreateSolidBrush(star_color);
-            FillRect(hdc, &star_rect, star_brush);
-            DeleteObject(star_brush);
+            RECT star_rect = { stars[i].x, stars[i].y, stars[i].x + size, stars[i].y + size };
+            HBRUSH brush = CreateSolidBrush(star_color);
+            FillRect(hdc, &star_rect, brush);
+            DeleteObject(brush);
         }
         else
         {
             SetPixel(hdc, stars[i].x, stars[i].y, star_color);
         }
     }
+
 }
 
 // Toggle fullscreen mode
@@ -420,8 +440,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     SetCursor(LoadCursor(NULL, IDC_ARROW));
 
-    load_settings_from_file("stars.ini"); // Load settings
-    check_config_variables(); // Make sure that setting are valid
+    // Load settings
+    load_settings_from_file("stars.ini");
+    // Make sure that setting are valid
+    check_config_variables();
+    // Initialize star positions using the (possibly updated) configuration
+    initialize_stars(stars, NUM_STARS, window_width, window_height);
 
     while (1)
     {
