@@ -112,9 +112,9 @@ void create_default_settings_file(const char *filename)
     if (file)
     {
         fprintf(file, "# Number of stars displayed on the screen\n");
-        fprintf(file, "NUM_STARS 300\n\n");
+        fprintf(file, "NUM_STARS 100\n\n");
         fprintf(file, "# Delay between frames in milliseconds (affects animation speed)\n");
-        fprintf(file, "DELAY 50\n\n");
+        fprintf(file, "DELAY 100\n\n");
         fprintf(file, "# Step by which brightness decreases (affects fading smoothness)\n");
         fprintf(file, "BRIGHTNESS_STEP 15\n\n");
         fprintf(file, "# Use colored stars (1 = yes, 0 = grayscale)\n");
