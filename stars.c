@@ -119,15 +119,15 @@ void create_default_settings_file(const char *filename)
     FILE *file = fopen(filename, "w");
     if (file)
     {
-        fprintf(file, "# Number of stars displayed on the screen\n");
+        fprintf(file, "# Number of stars displayed on the screen. (0...500)\n");
         fprintf(file, "NUM_STARS 100\n\n");
-        fprintf(file, "# Delay between frames in milliseconds (affects animation speed)\n");
+        fprintf(file, "# Delay between frames in milliseconds. Affects animation speed. (0...1000)\n");
         fprintf(file, "DELAY 100\n\n");
-        fprintf(file, "# Step by which brightness decreases (affects fading smoothness)\n");
+        fprintf(file, "# Step by which brightness decreases. Affects fading smoothness. (1...255)\n");
         fprintf(file, "BRIGHTNESS_STEP 15\n\n");
-        fprintf(file, "# Use colored stars (1 = yes, 0 = grayscale)\n");
+        fprintf(file, "# Use colored stars. (1 = yes, 0 = grayscale)\n");
         fprintf(file, "COLORED_STARS 1\n\n");
-        fprintf(file, "# Define star size (0 = 1x1, 1 = 2x2, 2 = 4x4, etc.)\n");
+        fprintf(file, "# Define star size. (0 = 1x1, 1 = 2x2, 2 = 4x4, etc., up to 4)\n");
         fprintf(file, "BIG_STARS 1\n");
         fclose(file);
     }
