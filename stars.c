@@ -412,10 +412,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = hInstance;
     wc.lpszClassName = CLASS_NAME;
+    wc.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(101));
+    wc.hIconSm = wc.hIcon;
 
     wc.hbrBackground = CreateSolidBrush(0x00000000);
     wc.style = CS_DBLCLKS;
-    wc.hIconSm = NULL;
 
     if (!RegisterClassEx(&wc))
     {
