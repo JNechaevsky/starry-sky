@@ -52,6 +52,7 @@ typedef struct
 #define MAXSTARS 500
 
 // Parameters loaded from ini file
+int FULLSCREEN = 0;        // Run in fullscreen mode
 int NUM_STARS = 100;       // Number of stars
 int DELAY = 100;           // Delay in ms
 int BRIGHTNESS_STEP = 15;  // Brightness step
@@ -63,7 +64,6 @@ int window_width = 800;
 int window_height = 600;
 Star stars[MAXSTARS];
 RECT saved_rect = {0};      // Saved window size
-BOOL is_fullscreen = FALSE; // Fullscreen mode indicator
 
 
 // -----------------------------------------------------------------------------
@@ -124,6 +124,8 @@ void M_CreateConfig(const char *filename)
     FILE *file = fopen(filename, "w");
     if (file)
     {
+        fprintf(file, "# Run in full screen mode. (1 = yes, 0 = no)\n");
+        fprintf(file, "FULLSCREEN 0\n\n");
         fprintf(file, "# Number of stars displayed on the screen. (0...500)\n");
         fprintf(file, "NUM_STARS 100\n\n");
         fprintf(file, "# Delay between frames in milliseconds. Affects animation speed. (0...1000)\n");
@@ -162,6 +164,7 @@ void M_LoadConfig(const char *filename)
         if (line[0] == '#' || line[0] == '\0')
             continue;
 
+        if (sscanf(line, "FULLSCREEN %d", &FULLSCREEN)) continue;
         if (sscanf(line, "NUM_STARS %d", &NUM_STARS)) continue;
         if (sscanf(line, "DELAY %d", &DELAY)) continue;
         if (sscanf(line, "BRIGHTNESS_STEP %d", &BRIGHTNESS_STEP)) continue;
@@ -179,6 +182,7 @@ void M_LoadConfig(const char *filename)
 
 void M_CheckConfig(void)
 {
+    FULLSCREEN      = BETWEEN(0, 1,        FULLSCREEN);
     NUM_STARS       = BETWEEN(0, MAXSTARS, NUM_STARS);
     DELAY           = BETWEEN(0, 1000,     DELAY);
     BRIGHTNESS_STEP = BETWEEN(1, 255,      BRIGHTNESS_STEP);
@@ -191,11 +195,11 @@ void M_CheckConfig(void)
 //  Toggle fullscreen mode.
 // -----------------------------------------------------------------------------
 
-void I_ToggleFullscreen(HWND hwnd)
+void I_ToggleFullscreen(HWND hwnd, BOOL startup)
 {
     static RECT saved_rect = {0}; // Saved window size
 
-    if (is_fullscreen)
+    if (FULLSCREEN && !startup)
     {
         // Exit fullscreen mode
         SetThreadExecutionState(ES_CONTINUOUS); // Reset screen saver/power off prevention
@@ -205,7 +209,7 @@ void I_ToggleFullscreen(HWND hwnd)
                      SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
         ShowWindow(hwnd, SW_NORMAL);
         SetCursor(LoadCursor(NULL, IDC_ARROW));
-        is_fullscreen = FALSE;
+        FULLSCREEN = FALSE;
     }
     else
     {
@@ -220,7 +224,7 @@ void I_ToggleFullscreen(HWND hwnd)
         ShowWindow(hwnd, SW_MAXIMIZE);
         SetCursor(NULL);
         SetThreadExecutionState(ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED | ES_CONTINUOUS);
-        is_fullscreen = TRUE;
+        FULLSCREEN = TRUE;
     }
 
     RedrawWindow(hwnd, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE);
@@ -383,7 +387,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
 
         case WM_LBUTTONDBLCLK:
-            I_ToggleFullscreen(hwnd);
+            I_ToggleFullscreen(hwnd, false);
             break;
 
         case WM_SIZE:
@@ -403,7 +407,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case WM_SETCURSOR:
             // In the client area, set the arrow cursor ourselves (if not fullscreen)
-            if (!is_fullscreen && LOWORD(lParam) == HTCLIENT)
+            if (!FULLSCREEN && LOWORD(lParam) == HTCLIENT)
             {
                 SetCursor(LoadCursor(NULL, IDC_ARROW));
                 return TRUE; // handled
@@ -490,6 +494,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     M_CheckConfig();
     // Initialize star positions using the (possibly updated) configuration
     R_InitializeStars(stars, NUM_STARS, window_width, window_height);
+
+    // Optionally start in full screen mode
+    if (FULLSCREEN)
+    {
+        I_ToggleFullscreen(hwnd, true);
+    }
 
     while (1)
     {
