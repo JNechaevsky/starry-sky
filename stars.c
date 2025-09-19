@@ -390,6 +390,25 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             I_ToggleFullscreen(hwnd, false);
             break;
 
+        case WM_SYSKEYDOWN: // Alt+Enter: toggle fullscreen (classic game shortcut)
+        {
+            // wParam == VK_RETURN and bit 29 of lParam set => ALT is held
+            if (wParam == VK_RETURN && (lParam & (1 << 29)))
+            {
+                I_ToggleFullscreen(hwnd, FALSE);
+                return 0; // handled (do not pass further)
+            }
+            // Not our combo — let DefWindowProc handle it (e.g. Alt+F4)
+            return DefWindowProc(hwnd, uMsg, wParam, lParam);
+        }
+
+        case WM_SYSCHAR: // Suppress system beep only for Alt+Enter
+        {
+            if (wParam == VK_RETURN)
+                return 0; // handled (suppress beep)
+            return DefWindowProc(hwnd, uMsg, wParam, lParam);
+        }
+
         case WM_SIZE:
             window_width = LOWORD(lParam);
             window_height = HIWORD(lParam);
