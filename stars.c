@@ -65,6 +65,7 @@ Star stars[MAXSTARS];
 RECT saved_rect = {0};      // Saved window size
 BOOL is_fullscreen = FALSE; // Fullscreen mode indicator
 
+
 // -----------------------------------------------------------------------------
 // M_CheckParm
 //  [PN] Simple command-line checker for WinMain-based apps
@@ -113,8 +114,12 @@ static int M_CheckParm(const char *check)
     return found;
 }
 
-// Function to create ini file with default settings
-void create_default_settings_file(const char *filename)
+// -----------------------------------------------------------------------------
+// M_CreateConfig
+// Function to create ini file with default settings.
+// -----------------------------------------------------------------------------
+
+void M_CreateConfig(const char *filename)
 {
     FILE *file = fopen(filename, "w");
     if (file)
@@ -133,13 +138,17 @@ void create_default_settings_file(const char *filename)
     }
 }
 
-// Reading settings from stars.ini file
-void load_settings_from_file(const char *filename)
+// -----------------------------------------------------------------------------
+// M_LoadConfig
+//  Read settings from stars.ini file.
+// -----------------------------------------------------------------------------
+
+void M_LoadConfig(const char *filename)
 {
     FILE *file = fopen(filename, "r");
     if (!file)
     {
-        create_default_settings_file(filename);
+        M_CreateConfig(filename);
         return;
     }
 
@@ -164,11 +173,11 @@ void load_settings_from_file(const char *filename)
 }
 
 // -----------------------------------------------------------------------------
-// check_config_variables
-//  [JN] Check for safe limits of config file variables.
+// M_CheckConfig
+//  Check for safe limits of config file variables.
 // -----------------------------------------------------------------------------
 
-void check_config_variables(void)
+void M_CheckConfig(void)
 {
     NUM_STARS       = BETWEEN(0, MAXSTARS, NUM_STARS);
     DELAY           = BETWEEN(0, 1000,     DELAY);
@@ -177,72 +186,12 @@ void check_config_variables(void)
     BIG_STARS       = BETWEEN(0, 4,        BIG_STARS);
 }
 
-// Clear screen
-void clear_screen(HDC hdc, int width, int height)
-{
-    HBRUSH blackBrush = CreateSolidBrush(RGB(0, 0, 0)); // Black background
-    RECT rect = {0, 0, width, height};
-    FillRect(hdc, &rect, blackBrush);
-    DeleteObject(blackBrush);
-}
+// -----------------------------------------------------------------------------
+// I_ToggleFullscreen
+//  Toggle fullscreen mode.
+// -----------------------------------------------------------------------------
 
-// Draw stars
-void draw_stars(HDC hdc, Star stars[], int count)
-{
-    for (int i = 0; i < count; i++)
-    {
-        // If we are about to extinguish, paint black to erase the last faint pixel
-        if (stars[i].brightness <= BRIGHTNESS_STEP)
-        {
-            // If you use BIG_STARS as a size (0=1x1, 1=2x2, 2=4x4...), compute size:
-            int size = (BIG_STARS > 0) ? (1 << BIG_STARS) : 1;
-
-            if (size > 1)
-            {
-                RECT star_rect = { stars[i].x, stars[i].y, stars[i].x + size, stars[i].y + size };
-                HBRUSH black = (HBRUSH)GetStockObject(BLACK_BRUSH);
-                FillRect(hdc, &star_rect, black);
-            }
-            else
-            {
-                SetPixel(hdc, stars[i].x, stars[i].y, RGB(0, 0, 0));
-            }
-            continue; // skip normal drawing for this star on this frame
-        }
-
-        COLORREF star_color;
-        if (COLORED_STARS)
-        {
-            int r = GetRValue(stars[i].color) * stars[i].brightness / 255;
-            int g = GetGValue(stars[i].color) * stars[i].brightness / 255;
-            int b = GetBValue(stars[i].color) * stars[i].brightness / 255;
-            star_color = RGB(r, g, b);
-        }
-        else
-        {
-            int gray = stars[i].brightness;
-            star_color = RGB(gray, gray, gray);
-        }
-
-        // If BIG_STARS encodes size (0=1x1, 1=2x2, 2=4x4, etc.)
-        int size = (BIG_STARS > 0) ? (1 << BIG_STARS) : 1;
-        if (size > 1)
-        {
-            RECT star_rect = { stars[i].x, stars[i].y, stars[i].x + size, stars[i].y + size };
-            HBRUSH brush = CreateSolidBrush(star_color);
-            FillRect(hdc, &star_rect, brush);
-            DeleteObject(brush);
-        }
-        else
-        {
-            SetPixel(hdc, stars[i].x, stars[i].y, star_color);
-        }
-    }
-
-}
-
-// Toggle fullscreen mode
-void toggle_fullscreen(HWND hwnd)
+void I_ToggleFullscreen(HWND hwnd)
 {
     static RECT saved_rect = {0}; // Saved window size
 
@@ -279,44 +228,25 @@ void toggle_fullscreen(HWND hwnd)
     SetFocus(hwnd);
 }
 
-// Update star brightness for smooth fading
-void update_brightness(Star *star)
+// -----------------------------------------------------------------------------
+// R_ClearScreen
+//  Clear screen.
+// -----------------------------------------------------------------------------
+
+void R_ClearScreen(HDC hdc, int width, int height)
 {
-    if (star->brightness > star->target_brightness)
-    {
-        star->brightness -= BRIGHTNESS_STEP;
-        if (star->brightness < star->target_brightness)
-        {
-            star->brightness = star->target_brightness;
-        }
-    }
+    HBRUSH blackBrush = CreateSolidBrush(RGB(0, 0, 0)); // Black background
+    RECT rect = {0, 0, width, height};
+    FillRect(hdc, &rect, blackBrush);
+    DeleteObject(blackBrush);
 }
 
-// Update stars
-void update_stars(Star stars[], int count, int max_x, int max_y)
-{
-    if (max_x <= 0 || max_y <= 0)
-    {
-        return;
-    }
+// -----------------------------------------------------------------------------
+// R_InitializeStars
+//  Initialize stars.
+// -----------------------------------------------------------------------------
 
-    for (int i = 0; i < count; i++)
-    {
-        update_brightness(&stars[i]);
-
-        if (stars[i].brightness == 0)
-        {
-            stars[i].x = rand() % max_x;
-            stars[i].y = rand() % max_y;
-            stars[i].brightness = 255;
-            stars[i].target_brightness = 0;
-            stars[i].color = RGB(rand() % 256, rand() % 256, rand() % 256);
-        }
-    }
-}
-
-// Initialize stars
-void initialize_stars(Star stars[], int count, int max_x, int max_y)
+void R_InitializeStars(Star stars[], int count, int max_x, int max_y)
 {
     if (max_x <= 0 || max_y <= 0)
     {
@@ -333,7 +263,113 @@ void initialize_stars(Star stars[], int count, int max_x, int max_y)
     }
 }
 
-// Window procedure
+// -----------------------------------------------------------------------------
+// R_UpdateBrightness
+//  Update star brightness for smooth fading.
+// -----------------------------------------------------------------------------
+
+void R_UpdateBrightness(Star *star)
+{
+    if (star->brightness > star->target_brightness)
+    {
+        star->brightness -= BRIGHTNESS_STEP;
+        if (star->brightness < star->target_brightness)
+        {
+            star->brightness = star->target_brightness;
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// R_UpdateStars
+//  Update stars.
+// -----------------------------------------------------------------------------
+
+void R_UpdateStars(Star stars[], int count, int max_x, int max_y)
+{
+    if (max_x <= 0 || max_y <= 0)
+    {
+        return;
+    }
+
+    for (int i = 0; i < count; i++)
+    {
+        R_UpdateBrightness(&stars[i]);
+
+        if (stars[i].brightness == 0)
+        {
+            stars[i].x = rand() % max_x;
+            stars[i].y = rand() % max_y;
+            stars[i].brightness = 255;
+            stars[i].target_brightness = 0;
+            stars[i].color = RGB(rand() % 256, rand() % 256, rand() % 256);
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// R_DrawStars
+//  Draw stars.
+//-----------------------------------------------------------------------------
+
+void R_DrawStars(HDC hdc, Star stars[], int count)
+{
+    for (int i = 0; i < count; i++)
+    {
+        // If we are about to extinguish, paint black to erase the last faint pixel
+        if (stars[i].brightness <= BRIGHTNESS_STEP)
+        {
+            // If you use BIG_STARS as a size (0=1x1, 1=2x2, 2=4x4...), compute size:
+            const int size = (BIG_STARS > 0) ? (1 << BIG_STARS) : 1;
+
+            if (size > 1)
+            {
+                RECT star_rect = { stars[i].x, stars[i].y, stars[i].x + size, stars[i].y + size };
+                HBRUSH black = (HBRUSH)GetStockObject(BLACK_BRUSH);
+                FillRect(hdc, &star_rect, black);
+            }
+            else
+            {
+                SetPixel(hdc, stars[i].x, stars[i].y, RGB(0, 0, 0));
+            }
+            continue; // skip normal drawing for this star on this frame
+        }
+
+        COLORREF star_color;
+        if (COLORED_STARS)
+        {
+            const int r = GetRValue(stars[i].color) * stars[i].brightness / 255;
+            const int g = GetGValue(stars[i].color) * stars[i].brightness / 255;
+            const int b = GetBValue(stars[i].color) * stars[i].brightness / 255;
+            star_color = RGB(r, g, b);
+        }
+        else
+        {
+            const int gray = stars[i].brightness;
+            star_color = RGB(gray, gray, gray);
+        }
+
+        // If BIG_STARS encodes size (0=1x1, 1=2x2, 2=4x4, etc.)
+        const int size = (BIG_STARS > 0) ? (1 << BIG_STARS) : 1;
+        if (size > 1)
+        {
+            RECT star_rect = { stars[i].x, stars[i].y, stars[i].x + size, stars[i].y + size };
+            HBRUSH brush = CreateSolidBrush(star_color);
+            FillRect(hdc, &star_rect, brush);
+            DeleteObject(brush);
+        }
+        else
+        {
+            SetPixel(hdc, stars[i].x, stars[i].y, star_color);
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// WindowProc
+//  Window procedure.
+// -----------------------------------------------------------------------------
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     static HDC hdc;
@@ -343,21 +379,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         case WM_CREATE:
             hdc = GetDC(hwnd);
             srand(time(NULL));
-            initialize_stars(stars, NUM_STARS, window_width, window_height);
+            R_InitializeStars(stars, NUM_STARS, window_width, window_height);
             break;
 
         case WM_LBUTTONDBLCLK:
-            toggle_fullscreen(hwnd);
+            I_ToggleFullscreen(hwnd);
             break;
 
         case WM_SIZE:
             window_width = LOWORD(lParam);
             window_height = HIWORD(lParam);
-            clear_screen(hdc, window_width, window_height);
+            R_ClearScreen(hdc, window_width, window_height);
 
             if (window_width > 0 && window_height > 0)
             {
-                initialize_stars(stars, NUM_STARS, window_width, window_height);
+                R_InitializeStars(stars, NUM_STARS, window_width, window_height);
             }
             break;
 
@@ -382,10 +418,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+// -----------------------------------------------------------------------------
 // WinMain
+// -----------------------------------------------------------------------------
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    // [JN] Create console output window if "-console" parameter is present.
+    // Create console output window if "-console" parameter is present.
     if (M_CheckParm ("-console"))
     {
         // Allocate console.
@@ -446,11 +485,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     SetCursor(LoadCursor(NULL, IDC_ARROW));
 
     // Load settings
-    load_settings_from_file("stars.ini");
+    M_LoadConfig("stars.ini");
     // Make sure that setting are valid
-    check_config_variables();
+    M_CheckConfig();
     // Initialize star positions using the (possibly updated) configuration
-    initialize_stars(stars, NUM_STARS, window_width, window_height);
+    R_InitializeStars(stars, NUM_STARS, window_width, window_height);
 
     while (1)
     {
@@ -470,8 +509,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         window_width = rect.right;
         window_height = rect.bottom;
 
-        draw_stars(hdc, stars, NUM_STARS);
-        update_stars(stars, NUM_STARS, window_width, window_height);
+        R_DrawStars(hdc, stars, NUM_STARS);
+        R_UpdateStars(stars, NUM_STARS, window_width, window_height);
 
         Sleep(DELAY);
     }
