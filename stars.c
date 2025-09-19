@@ -47,6 +47,7 @@ typedef struct
     COLORREF color;        // Star color
 } star_t;
 
+#define IDM_ABOUT 1001     // About dialog window
 #define BETWEEN(l, u, x) (((x) < (l)) ? (l) : ((x) > (u)) ? (u) : (x))
 #define MAXSTARS 500
 
@@ -381,7 +382,30 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             hdc = GetDC(hwnd);
             srand(time(NULL));
             R_InitializeStars(stars, NUM_STARS, window_width, window_height);
+
+            // Add "About..." menu item to system menu
+            HMENU hSysMenu = GetSystemMenu(hwnd, FALSE);
+            if (hSysMenu)
+            {
+                AppendMenu(hSysMenu, MF_SEPARATOR, 0, NULL);
+                AppendMenu(hSysMenu, MF_STRING, IDM_ABOUT, "About...");
+            }
             break;
+
+        case WM_SYSCOMMAND: // About dialog window
+            if (LOWORD(wParam) == IDM_ABOUT)
+            {
+                MessageBoxW(hwnd,
+                    L"Starry Sky\n"
+                    L"Version 1.0 (MM/DD/YYYY)\n\n"
+                    L"Developed and designed by:\r\n"
+                    L"Polina \"Aura\" N. 💙 Julia Nechaevskaya",
+                    L"About",
+                    MB_OK | MB_ICONINFORMATION);
+                return 0; // handled
+            }
+            // Give the rest of the command to system
+            return DefWindowProc(hwnd, uMsg, wParam, lParam);
 
         case WM_LBUTTONDBLCLK:
             I_ToggleFullscreen(hwnd, false);
