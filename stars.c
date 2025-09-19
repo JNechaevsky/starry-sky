@@ -44,7 +44,6 @@ typedef struct
 {
     int x, y;
     int brightness;        // Current brightness (0-255)
-    int target_brightness; // Target brightness (always 0 for fading)
     COLORREF color;        // Star color
 } star_t;
 
@@ -262,7 +261,6 @@ void R_InitializeStars(star_t stars[], int count, int max_x, int max_y)
         stars[i].x = rand() % max_x;
         stars[i].y = rand() % max_y;
         stars[i].brightness = rand() % 256;
-        stars[i].target_brightness = 0;
         stars[i].color = RGB(rand() % 256, rand() % 256, rand() % 256);
     }
 }
@@ -274,12 +272,12 @@ void R_InitializeStars(star_t stars[], int count, int max_x, int max_y)
 
 void R_UpdateBrightness(star_t *star)
 {
-    if (star->brightness > star->target_brightness)
+    if (star->brightness > 0)
     {
         star->brightness -= BRIGHTNESS_STEP;
-        if (star->brightness < star->target_brightness)
+        if (star->brightness < 0)
         {
-            star->brightness = star->target_brightness;
+            star->brightness = 0;
         }
     }
 }
@@ -305,7 +303,6 @@ void R_UpdateStars(star_t stars[], int count, int max_x, int max_y)
             stars[i].x = rand() % max_x;
             stars[i].y = rand() % max_y;
             stars[i].brightness = 255;
-            stars[i].target_brightness = 0;
             stars[i].color = RGB(rand() % 256, rand() % 256, rand() % 256);
         }
     }
