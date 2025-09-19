@@ -46,7 +46,7 @@ typedef struct
     int brightness;        // Current brightness (0-255)
     int target_brightness; // Target brightness (always 0 for fading)
     COLORREF color;        // Star color
-} Star;
+} star_t;
 
 #define BETWEEN(l, u, x) (((x) < (l)) ? (l) : ((x) > (u)) ? (u) : (x))
 #define MAXSTARS 500
@@ -62,7 +62,7 @@ int BIG_STARS = 1;         // Large stars
 // Global variables for window size
 int window_width = 800;
 int window_height = 600;
-Star stars[MAXSTARS];
+star_t stars[MAXSTARS];
 RECT saved_rect = {0};      // Saved window size
 
 
@@ -250,7 +250,7 @@ void R_ClearScreen(HDC hdc, int width, int height)
 //  Initialize stars.
 // -----------------------------------------------------------------------------
 
-void R_InitializeStars(Star stars[], int count, int max_x, int max_y)
+void R_InitializeStars(star_t stars[], int count, int max_x, int max_y)
 {
     if (max_x <= 0 || max_y <= 0)
     {
@@ -272,7 +272,7 @@ void R_InitializeStars(Star stars[], int count, int max_x, int max_y)
 //  Update star brightness for smooth fading.
 // -----------------------------------------------------------------------------
 
-void R_UpdateBrightness(Star *star)
+void R_UpdateBrightness(star_t *star)
 {
     if (star->brightness > star->target_brightness)
     {
@@ -289,7 +289,7 @@ void R_UpdateBrightness(Star *star)
 //  Update stars.
 // -----------------------------------------------------------------------------
 
-void R_UpdateStars(Star stars[], int count, int max_x, int max_y)
+void R_UpdateStars(star_t stars[], int count, int max_x, int max_y)
 {
     if (max_x <= 0 || max_y <= 0)
     {
@@ -316,7 +316,7 @@ void R_UpdateStars(Star stars[], int count, int max_x, int max_y)
 //  Draw stars.
 //-----------------------------------------------------------------------------
 
-void R_DrawStars(HDC hdc, Star stars[], int count)
+void R_DrawStars(HDC hdc, star_t stars[], int count)
 {
     for (int i = 0; i < count; i++)
     {
