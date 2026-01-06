@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <windows.h>        // CP_UTF8
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>  // SDL3: include explicitly for main()
@@ -69,9 +70,42 @@ typedef struct
     short r, g, b;         // base color
 } star_t;
 
+static star_t stars[MAXSTARS];
+
 static int render_w = 800;
 static int render_h = 600;
-static star_t stars[MAXSTARS];
+static uint32_t m_rand_seed = 1;
+
+
+// -----------------------------------------------------------------------------
+// Miscellaneous
+// -----------------------------------------------------------------------------
+
+//
+// Check for command line parameters
+//
+
+static int M_CheckParm(const char *parm, int argc, char **argv)
+{
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], parm) == 0)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+//
+// Our RNG/LCG function (Linear Congruential Generator) from International Doom.
+//
+
+int M_RealRandom(void)
+{
+    return (m_rand_seed = m_rand_seed * 214013u + 2531011u) >> 17;
+}
 
 
 // -----------------------------------------------------------------------------
@@ -171,13 +205,13 @@ static void R_RandomizeStarColor(short *r, short *g, short *b)
 {
     if (COLORED_STARS)
     {
-        *r = (short)(rand() % 256);
-        *g = (short)(rand() % 256);
-        *b = (short)(rand() % 256);
+        *r = (short)(M_RealRandom() % 256);
+        *g = (short)(M_RealRandom() % 256);
+        *b = (short)(M_RealRandom() % 256);
     }
     else
     {
-        short gray = (short)(rand() % 256);
+        short gray = (short)(M_RealRandom() % 256);
         *r = *g = *b = gray;
     }
 }
@@ -188,9 +222,9 @@ static void R_InitStars(star_t *arr, int count, int maxx, int maxy)
 
     for (int i = 0; i < count; i++)
     {
-        arr[i].x = rand() % maxx;
-        arr[i].y = rand() % maxy;
-        arr[i].brightness = rand() % 256; // start at random intensity
+        arr[i].x = M_RealRandom() % maxx;
+        arr[i].y = M_RealRandom() % maxy;
+        arr[i].brightness = M_RealRandom() % 256; // start at random intensity
         arr[i].target_brightness = 0;
 
         R_RandomizeStarColor(&arr[i].r, &arr[i].g, &arr[i].b);
@@ -220,8 +254,8 @@ static void R_UpdateStars(star_t *arr, int count, int maxx, int maxy)
         if (arr[i].brightness == 0)
         {
             // respawn at new position with fresh brightness and color
-            arr[i].x = rand() % maxx;
-            arr[i].y = rand() % maxy;
+            arr[i].x = M_RealRandom() % maxx;
+            arr[i].y = M_RealRandom() % maxy;
             arr[i].brightness = 255;
             arr[i].target_brightness = 0;
             R_RandomizeStarColor(&arr[i].r, &arr[i].g, &arr[i].b);
@@ -303,8 +337,27 @@ static void I_ToggleFullScreen(SDL_Window *win, bool enable)
 
 int main(int argc, char **argv)
 {
-    // (void)argc;
-    // (void)argv;
+    if (M_CheckParm("-console", argc, argv))
+    {
+        // Allocate console
+        AllocConsole();
+        SetConsoleTitle("Console");
+
+        // Head text outputs
+        if (!freopen("CONIN$", "r", stdin))
+            fprintf(stderr, "Failed to redirect stdin\n");
+        if (!freopen("CONOUT$", "w", stdout))
+            fprintf(stderr, "Failed to redirect stdout\n");
+        if (!freopen("CONOUT$", "w", stderr))
+            fprintf(stderr, "Failed to redirect stderr\n");
+
+        // Set a proper codepage
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+    }
+
+    // Initialize RNG/LCG 
+    m_rand_seed = (uint32_t)time(NULL);
 
     // Read config file if exist. Otherwise, create a new one with defaults.
     const int had_cfg = CFG_Load(CONFIG_FILENAME);
