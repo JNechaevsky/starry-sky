@@ -53,6 +53,7 @@
 
 
 // ------------------------- Parameters (configurable) -------------------------
+static int FULLSCREEN       = 0;     // full screen mode
 static int NUM_STARS        = 100;   // number of stars (0..MAXSTARS)
 static int DELAY_MS         = 100;   // delay between frames (ms)
 static int BRIGHTNESS_STEP  = 15;    // brightness decrement per frame (1..255)
@@ -100,7 +101,8 @@ static int ieq(const char *a, const char *b)
 
 static void ini_apply_kv(const char *key, const char *val)
 {
-         if (ieq(key, "num_stars"))       NUM_STARS       = (int)strtol(val, NULL, 10);
+         if (ieq(key, "fullscreen"))      FULLSCREEN      = (int)strtol(val, NULL, 10);
+    else if (ieq(key, "num_stars"))       NUM_STARS       = (int)strtol(val, NULL, 10);
     else if (ieq(key, "delay_ms"))        DELAY_MS        = (int)strtol(val, NULL, 10);
     else if (ieq(key, "brightness_step")) BRIGHTNESS_STEP = (int)strtol(val, NULL, 10);
     else if (ieq(key, "colored_stars"))   COLORED_STARS   = (int)strtol(val, NULL, 10);
@@ -116,12 +118,14 @@ static int CFG_Load(const char *path)
     {
         trim(line);
         if (!line[0] || line[0] == '#' || line[0] == ';' || line[0] == '[') continue;
-        char *eq = strchr(line, '=');
-        if (!eq) continue;
-        *eq = 0;
+        char *p = line;
+        while (*p && *p != ' ' && *p != '	') p++;
+        if (!*p) continue;
+        *p = 0;
         char *key = line;
-        char *val = eq + 1;
-        trim(key); trim(val);
+        char *val = p + 1;
+        trim(key);
+        trim(val);
         if (key[0]) ini_apply_kv(key, val);
     }
     fclose(f);
@@ -130,6 +134,7 @@ static int CFG_Load(const char *path)
 
 static void CFG_Check(void)
 {
+    FULLSCREEN      = BETWEEN(0, 1,        FULLSCREEN);
     NUM_STARS       = BETWEEN(0, MAXSTARS, NUM_STARS);
     DELAY_MS        = BETWEEN(0, 1000,     DELAY_MS);
     BRIGHTNESS_STEP = BETWEEN(1, 255,      BRIGHTNESS_STEP);
@@ -141,13 +146,15 @@ static int CFG_Save(const char *path)
 {
     FILE *f = fopen(path, "w");
     if (!f) return 0;
-    fprintf(f, "# Number of stars displayed on the screen. (0...500)\n");
+    fprintf(f, "# Run in a full screen mode. (0 = no, 1 = yes)\n");
+    fprintf(f, "fullscreen %d\n",      FULLSCREEN);
+    fprintf(f, "\n# Number of stars displayed on the screen. (0...500)\n");
     fprintf(f, "num_stars %d\n",       NUM_STARS);
     fprintf(f, "\n# Delay between frames in milliseconds. Affects animation speed. (0...1000)\n");
     fprintf(f, "delay_ms %d\n",        DELAY_MS);
     fprintf(f, "\n# Step by which brightness decreases. Affects fading smoothness. (1...255)\n");
     fprintf(f, "brightness_step %d\n", BRIGHTNESS_STEP);
-    fprintf(f, "\n# Use colored stars. (1 = yes, 0 = grayscale)\n");
+    fprintf(f, "\n# Use colored stars. (0 = grayscale, 1 = colored)\n");
     fprintf(f, "colored_stars %d\n",   COLORED_STARS);
     fprintf(f, "\n# Define star size. (0 = 1x1, 1 = 2x2, 2 = 4x4, etc., up to 4)\n");
     fprintf(f, "big_stars %d\n",       BIG_STARS);
@@ -284,6 +291,9 @@ static void I_ToggleFullScreen(SDL_Window *win, bool enable)
         SDL_ShowCursor();
         SDL_EnableScreenSaver();
     }
+
+    // Update config variable
+    FULLSCREEN = enable;
 }
 
 
@@ -337,7 +347,11 @@ int main(int argc, char **argv)
     R_InitStars(stars, NUM_STARS, render_w, render_h);
 
     bool running = true;
-    bool is_fullscreen = false;
+    bool is_fullscreen = FULLSCREEN;
+
+    // Start in full screen mode, if config variable set to 1
+    if (is_fullscreen)
+    I_ToggleFullScreen(win, true);
 
     while (running)
     {
