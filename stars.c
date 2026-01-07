@@ -411,7 +411,6 @@ int main(int argc, char **argv)
     R_InitStars(stars, NUM_STARS, render_w, render_h);
 
     bool running = true;
-    bool need_resize = false;
     bool is_fullscreen = FULLSCREEN;
 
     // Start in full screen mode, if config variable set to 1
@@ -420,13 +419,6 @@ int main(int argc, char **argv)
 
     while (running)
     {
-        // Reinitialize stars for changed window size
-        if (need_resize)
-        {
-            R_InitStars(stars, NUM_STARS, render_w, render_h);
-            need_resize = false;
-        }
-        
         // Handle events
         SDL_Event ev;
         while (SDL_PollEvent(&ev))
@@ -466,7 +458,8 @@ int main(int argc, char **argv)
                 case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 case SDL_EVENT_WINDOW_RESIZED:
                     SDL_GetRenderOutputSize(ren, &render_w, &render_h);
-                    need_resize = true;
+                    // Update imideatelly on window resize
+                    R_InitStars(stars, NUM_STARS, render_w, render_h);
                     break;
             }
         }
