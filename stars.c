@@ -28,14 +28,27 @@
 //    windres resource.rc -O coff -o resource.o
 //    gcc stars.c resource.o -std=c99 -Wall -Wextra -O2 $(pkg-config --cflags --libs sdl3) -o stars.exe
 //
-// Compile under Visual Studio Build Tools + vcpkg:
+// ---
+//
+// Compile under Visual Studio Build Tools + vcpkg (will need SDL3.dll to run):
 //  Install SDL3 in vcpkg:
 //    vcpkg install sdl3:x64-windows
 //
-//  x64 Native Tools Command Prompt for VS 2022:
+//  x64 Native Tools Command Prompt for VS 2026:
 //    set VCPKG_ROOT=R:\VCPKG
 //    rc /nologo resource.rc
 //    cl /O2 /MD /I "%VCPKG_ROOT%\installed\x64-windows\include" stars.c resource.res /link /SUBSYSTEM:WINDOWS /LIBPATH:"%VCPKG_ROOT%\installed\x64-windows\lib" SDL3.lib
+//
+// ---
+//
+// Compile under Visual Studio Build Tools + vcpkg (static linkage):
+//  Install SDL3 in vcpkg:
+//    vcpkg install sdl3:x64-windows sdl3:x64-windows-static-release
+//
+//  x64 Native Tools Command Prompt for VS 2026:
+//    set VCPKG_ROOT=R:\VCPKG
+//    rc /nologo resource.rc
+//    cl /O2 /MT /DNDEBUG /I "%VCPKG_ROOT%\installed\x64-windows-static-release\include" stars.c resource.res /link /SUBSYSTEM:WINDOWS /LIBPATH:"%VCPKG_ROOT%\installed\x64-windows-static-release\lib" SDL3-static.lib user32.lib gdi32.lib winmm.lib shell32.lib advapi32.lib ole32.lib oleaut32.lib setupapi.lib cfgmgr32.lib imm32.lib version.lib
 
 
 
