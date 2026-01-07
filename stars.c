@@ -69,10 +69,10 @@
 // ------------------------- Parameters (configurable) -------------------------
 static int FULLSCREEN       = 0;     // full screen mode
 static int NUM_STARS        = 100;   // number of stars (0..MAXSTARS)
-static int DELAY_MS         = 100;   // delay between frames (ms)
-static int BRIGHTNESS_STEP  = 15;    // brightness decrement per frame (1..255)
+static int DELAY_MS         = 15;    // delay between frames (ms)
+static int BRIGHTNESS_STEP  = 1;     // brightness decrement per frame (1..255)
 static int COLORED_STARS    = 1;     // 1 = random RGB, 0 = grayscale
-static int BIG_STARS        = 1;     // 0=1x1, 1=2x2, 2=4x4, ...
+static int STAR_SIZE        = 3;     // size of the star (1...16)
 // -----------------------------------------------------------------------------
 
 typedef struct
@@ -153,7 +153,7 @@ static void ini_apply_kv(const char *key, const char *val)
     else if (ieq(key, "delay_ms"))        DELAY_MS        = (int)strtol(val, NULL, 10);
     else if (ieq(key, "brightness_step")) BRIGHTNESS_STEP = (int)strtol(val, NULL, 10);
     else if (ieq(key, "colored_stars"))   COLORED_STARS   = (int)strtol(val, NULL, 10);
-    else if (ieq(key, "big_stars"))       BIG_STARS       = (int)strtol(val, NULL, 10);
+    else if (ieq(key, "star_size"))       STAR_SIZE       = (int)strtol(val, NULL, 10);
 }
 
 static int CFG_Load(const char *path)
@@ -186,7 +186,7 @@ static void CFG_Check(void)
     DELAY_MS        = BETWEEN(0, 1000,     DELAY_MS);
     BRIGHTNESS_STEP = BETWEEN(1, 255,      BRIGHTNESS_STEP);
     COLORED_STARS   = BETWEEN(0, 1,        COLORED_STARS);
-    BIG_STARS       = BETWEEN(0, 4,        BIG_STARS);
+    STAR_SIZE       = BETWEEN(1, 16,       STAR_SIZE);
 }
 
 static int CFG_Save(const char *path)
@@ -203,8 +203,8 @@ static int CFG_Save(const char *path)
     fprintf(f, "brightness_step %d\n", BRIGHTNESS_STEP);
     fprintf(f, "\n# Use colored stars. (0 = grayscale, 1 = colored)\n");
     fprintf(f, "colored_stars %d\n",   COLORED_STARS);
-    fprintf(f, "\n# Define star size. (0 = 1x1, 1 = 2x2, 2 = 4x4, etc., up to 4)\n");
-    fprintf(f, "big_stars %d\n",       BIG_STARS);
+    fprintf(f, "\n# Define star size. (1...16)\n");
+    fprintf(f, "star_size %d\n",       STAR_SIZE);
     fclose(f);
     return 1;
 }
@@ -282,8 +282,6 @@ static void R_DrawStarts(SDL_Renderer *ren, star_t *arr, int count)
     SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
     SDL_RenderClear(ren);
 
-    const int size = (BIG_STARS > 0) ? (1 << BIG_STARS) : 1;
-
     for (int i = 0; i < count; i++)
     {
         const int br = BETWEEN(0, 255, arr[i].brightness);
@@ -303,9 +301,9 @@ static void R_DrawStarts(SDL_Renderer *ren, star_t *arr, int count)
 
         SDL_SetRenderDrawColor(ren, rr, gg, bb, 255);
 
-        if (size > 1)
+        if (STAR_SIZE > 1)
         {
-            SDL_FRect r = { (float)arr[i].x, (float)arr[i].y, (float)size, (float)size };
+            SDL_FRect r = { (float)arr[i].x, (float)arr[i].y, (float)STAR_SIZE, (float)STAR_SIZE };
             SDL_RenderFillRect(ren, &r);
         }
         else
