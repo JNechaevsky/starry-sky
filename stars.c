@@ -67,19 +67,20 @@
 
 
 // ------------------------- Parameters (configurable) -------------------------
-static int FULLSCREEN       = 0;     // full screen mode
+static int FULLSCREEN       = 1;     // full screen mode
 static int NUM_STARS        = 100;   // number of stars (0..MAXSTARS)
 static int DELAY_MS         = 15;    // delay between frames (ms)
 static int BRIGHTNESS_STEP  = 1;     // brightness decrement per frame (1..255)
 static int COLORED_STARS    = 1;     // 1 = random RGB, 0 = grayscale
 static int STAR_SIZE        = 3;     // size of the star (1...16)
+static int STAR_SPEED       = -3;    // movement speed and direction (-10...0...10)
 // -----------------------------------------------------------------------------
 
 typedef struct
 {
-    int x, y;
+    float x, y;            // floats for smoother movement
+    float speed;           // movement speed
     int brightness;        // current brightness (0..255)
-    int target_brightness; // always 0 in this effect
     short r, g, b;         // base color
 } star_t;
 
@@ -154,6 +155,7 @@ static void ini_apply_kv(const char *key, const char *val)
     else if (ieq(key, "brightness_step")) BRIGHTNESS_STEP = (int)strtol(val, NULL, 10);
     else if (ieq(key, "colored_stars"))   COLORED_STARS   = (int)strtol(val, NULL, 10);
     else if (ieq(key, "star_size"))       STAR_SIZE       = (int)strtol(val, NULL, 10);
+	else if (ieq(key, "star_speed"))      STAR_SPEED      = (int)strtol(val, NULL, 10);
 }
 
 static int CFG_Load(const char *path)
@@ -187,6 +189,7 @@ static void CFG_Check(void)
     BRIGHTNESS_STEP = BETWEEN(1, 255,      BRIGHTNESS_STEP);
     COLORED_STARS   = BETWEEN(0, 1,        COLORED_STARS);
     STAR_SIZE       = BETWEEN(1, 16,       STAR_SIZE);
+	STAR_SPEED      = BETWEEN(-10, 10,     STAR_SPEED);
 }
 
 static int CFG_Save(const char *path)
@@ -205,6 +208,9 @@ static int CFG_Save(const char *path)
     fprintf(f, "colored_stars %d\n",   COLORED_STARS);
     fprintf(f, "\n# Define star size. (1...16)\n");
     fprintf(f, "star_size %d\n",       STAR_SIZE);
+    fprintf(f, "\n# Movement speed and direction (-10...0...10).");
+	fprintf(f, "\n# Negative = moving left, zero = static, positive = moving right.\n");
+    fprintf(f, "star_speed %d\n", STAR_SPEED);
     fclose(f);
     return 1;
 }
@@ -235,24 +241,11 @@ static void R_InitStars(star_t *arr, int count, int maxx, int maxy)
 
     for (int i = 0; i < count; i++)
     {
-        arr[i].x = M_RealRandom() % maxx;
-        arr[i].y = M_RealRandom() % maxy;
-        arr[i].brightness = M_RealRandom() % 256; // start at random intensity
-        arr[i].target_brightness = 0;
-
+        arr[i].x = (float)(M_RealRandom() % maxx);
+        arr[i].y = (float)(M_RealRandom() % maxy);
+        arr[i].speed = 0.1f + ((M_RealRandom() % 100) / 50.0f); 
+        arr[i].brightness = M_RealRandom() % 256;
         R_RandomizeStarColor(&arr[i].r, &arr[i].g, &arr[i].b);
-    }
-}
-
-static void R_UpdateStarBrightness(star_t *s)
-{
-    if (s->brightness > s->target_brightness)
-    {
-        s->brightness -= BRIGHTNESS_STEP;
-        if (s->brightness < s->target_brightness)
-        {
-            s->brightness = s->target_brightness;
-        }
     }
 }
 
@@ -262,15 +255,39 @@ static void R_UpdateStars(star_t *arr, int count, int maxx, int maxy)
 
     for (int i = 0; i < count; i++)
     {
-        R_UpdateStarBrightness(&arr[i]);
+        // Movement: global speed * star-specific coefficient / fine-tuning
+        arr[i].x += ((float)STAR_SPEED * arr[i].speed) / 6;
 
-        if (arr[i].brightness == 0)
+        // Brightness logics
+        if (arr[i].brightness > 0)
         {
-            // respawn at new position with fresh brightness and color
-            arr[i].x = M_RealRandom() % maxx;
-            arr[i].y = M_RealRandom() % maxy;
-            arr[i].brightness = 255;
-            arr[i].target_brightness = 0;
+            arr[i].brightness -= BRIGHTNESS_STEP;
+            if (arr[i].brightness < 0)
+                arr[i].brightness = 0;
+        }
+
+        // Check for leaving screen bounds (on both sides) and fading out
+        const bool out_right = (STAR_SPEED > 0 && arr[i].x > (float)maxx);
+        const bool out_left  = (STAR_SPEED < 0 && arr[i].x < 0);
+        
+        if (out_right || out_left || arr[i].brightness <= 0)
+        {
+            // Respawn on the opposite side or at a random position
+            if (out_right)
+			{
+				arr[i].x = 0;
+			}
+            else if (out_left)
+			{
+				arr[i].x = (float)maxx;
+			}
+            else
+			{
+				arr[i].x = (float)(M_RealRandom() % maxx);
+			}
+            arr[i].y = (float)(M_RealRandom() % maxy);
+            arr[i].speed = 0.5f + ((M_RealRandom() % 100) / 100.0f);
+            arr[i].brightness = 128 + (M_RealRandom() % 128); 
             R_RandomizeStarColor(&arr[i].r, &arr[i].g, &arr[i].b);
         }
     }
