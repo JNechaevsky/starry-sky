@@ -451,12 +451,39 @@ int main(int argc, char **argv)
                 
                     if (sc == SDL_SCANCODE_ESCAPE)
                     {
+                        // Quit
                         running = false;
                     }
                     else if ( sc == SDL_SCANCODE_F11 || ((sc == SDL_SCANCODE_RETURN || sc == SDL_SCANCODE_KP_ENTER) && (mods & SDL_KMOD_ALT)))
                     {
+                        // Toggle full screen
                         is_fullscreen = !is_fullscreen;
                         I_ToggleFullScreen(win, is_fullscreen);
+                    }
+                    else if (sc == SDL_SCANCODE_SPACE)
+                    {
+                        // Toggle colored stars
+                        COLORED_STARS ^= 1;
+                    }
+                    else if (sc == SDL_SCANCODE_UP && NUM_STARS < MAXSTARS)
+                    {
+                        // Increase amount of stars
+                        NUM_STARS++;
+                    }
+                    else if (sc == SDL_SCANCODE_DOWN && NUM_STARS > 0)
+                    {
+                        // Decrease amount of stars
+                        NUM_STARS--;
+                    }
+                    else if (sc == SDL_SCANCODE_RIGHT && STAR_SPEED < 10)
+                    {
+                        // Increase movement speed
+                        STAR_SPEED++;
+                    }
+                    else if (sc == SDL_SCANCODE_LEFT && STAR_SPEED > -10)
+                    {
+                        // Decrease movement speed
+                        STAR_SPEED--;
                     }
 
                     break;
