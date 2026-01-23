@@ -276,7 +276,7 @@ static void R_UpdateStars(star_t *arr, int count, int maxx, int maxy)
     }
 }
 
-static void R_DrawStarts(SDL_Renderer *ren, star_t *arr, int count)
+static void R_DrawStars(SDL_Renderer *ren, star_t *arr, int count)
 {
     // Clear to black once per frame (SDL renderer is a backbuffer)
     SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
@@ -286,17 +286,17 @@ static void R_DrawStarts(SDL_Renderer *ren, star_t *arr, int count)
     {
         const int br = BETWEEN(0, 255, arr[i].brightness);
 
-        short rr, gg, bb;
+        Uint8 rr, gg, bb;
         if (COLORED_STARS)
         {
             // scale base color by brightness
-            rr = (short)((arr[i].r * br) / 255);
-            gg = (short)((arr[i].g * br) / 255);
-            bb = (short)((arr[i].b * br) / 255);
+            rr = (Uint8)((arr[i].r * br) / 255);
+            gg = (Uint8)((arr[i].g * br) / 255);
+            bb = (Uint8)((arr[i].b * br) / 255);
         }
         else
         {
-            rr = gg = bb = (short)br;
+            rr = gg = bb = (Uint8)br;
         }
 
         SDL_SetRenderDrawColor(ren, rr, gg, bb, 255);
@@ -464,7 +464,7 @@ int main(int argc, char **argv)
 
         // Update and draw!
         R_UpdateStars(stars, NUM_STARS, render_w, render_h);
-        R_DrawStarts(ren, stars, NUM_STARS);
+        R_DrawStars(ren, stars, NUM_STARS);
 
         if (DELAY_MS > 0)
             SDL_Delay((Uint32)DELAY_MS);
