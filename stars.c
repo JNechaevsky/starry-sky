@@ -465,6 +465,16 @@ int main(int argc, char **argv)
                         // Toggle colored stars
                         COLORED_STARS ^= 1;
                     }
+                    else if (sc == SDL_SCANCODE_COMMA && STAR_SIZE > 0)
+                    {
+                        // Decrease star size
+                        STAR_SIZE--;
+                    }
+                    else if (sc == SDL_SCANCODE_PERIOD && STAR_SIZE < 17)
+                    {
+                        // Increase star size
+                        STAR_SIZE++;
+                    }
                     else if (sc == SDL_SCANCODE_UP && NUM_STARS < MAXSTARS)
                     {
                         // Increase amount of stars
