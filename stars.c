@@ -65,6 +65,10 @@
 #define BETWEEN(l, u, x) (((x) < (l)) ? (l) : ((x) > (u)) ? (u) : (x))
 #define MAXSTARS 500
 
+#define TICRATE 35                        // tics in second (as in Doom)
+#define TIC_DURATION_MS (1000 / TICRATE)  // ~28.57 ms per tic
+static Uint64 gametic = 0;                // tic counter
+static Uint64 last_tic_time = 0;          // time of last tic
 
 // ------------------------- Parameters (configurable) -------------------------
 static int FULLSCREEN       = 1;     // full screen mode
@@ -90,6 +94,22 @@ static int render_w = 800;
 static int render_h = 600;
 static uint32_t m_rand_seed = 1;
 
+
+// -----------------------------------------------------------------------------
+// Frame rate independent timer (35 fps logics)
+// -----------------------------------------------------------------------------
+
+static void I_Ticker (void)
+{
+    const Uint64 now = SDL_GetTicks();
+
+    if (now - last_tic_time >= TIC_DURATION_MS)
+    {
+        const Uint64 elapsed_ticks = (now - last_tic_time) / TIC_DURATION_MS;
+        gametic += elapsed_ticks;
+        last_tic_time += elapsed_ticks * TIC_DURATION_MS;
+    }
+}
 
 // -----------------------------------------------------------------------------
 // Miscellaneous
@@ -450,6 +470,9 @@ int main(int argc, char **argv)
 
     while (running)
     {
+        // Frame rate independent timer
+        I_Ticker();
+
         // Handle events
         SDL_Event ev;
         while (SDL_PollEvent(&ev))
