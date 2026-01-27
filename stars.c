@@ -62,6 +62,7 @@
 #include <SDL3/SDL_main.h>  // SDL3: include explicitly for main()
 
 #define CONFIG_FILENAME "stars.ini"
+#define MAX(a,b) ((a)>(b)?(a):(b))
 #define BETWEEN(l, u, x) (((x) < (l)) ? (l) : ((x) > (u)) ? (u) : (x))
 #define MAXSTARS 500
 
@@ -69,6 +70,13 @@
 #define TIC_DURATION_MS (1000 / TICRATE)  // ~28.57 ms per tic
 static Uint64 gametic = 0;                // tic counter
 static Uint64 last_tic_time = 0;          // time of last tic
+
+static char msg_buffer[64];               // buffer for combined message (text + variable)
+static const char *msg_text;              // text of the message
+static Uint8 msg_timeout;                 // timeout before disappear
+static float msg_x, msg_y;                // x and y coords on the screen
+static Uint8 msg_r, msg_g, msg_b;         // RGB colors
+static Uint8 msg_a;                       // amount of alpha blending
 
 // ------------------------- Parameters (configurable) -------------------------
 static int FULLSCREEN       = 1;     // full screen mode
@@ -78,6 +86,7 @@ static int BRIGHTNESS_STEP  = 1;     // brightness decrement per frame (1..255)
 static int COLORED_STARS    = 1;     // 1 = random RGB, 0 = grayscale
 static int STAR_SIZE        = 3;     // size of the star (1...16)
 static int STAR_SPEED       = -3;    // movement speed and direction (-10...0...10)
+static int SHOW_MESSAGES    = 1;     // 1 = show messages and tips
 // -----------------------------------------------------------------------------
 
 typedef struct
@@ -108,6 +117,14 @@ static void I_Ticker (void)
         const Uint64 elapsed_ticks = (now - last_tic_time) / TIC_DURATION_MS;
         gametic += elapsed_ticks;
         last_tic_time += elapsed_ticks * TIC_DURATION_MS;
+
+        // Handle message timeout and fading
+        if (msg_timeout)
+        {
+            msg_timeout--;
+            if (msg_timeout <= (Uint8)(1.5 * TICRATE) && msg_a > 0)
+                msg_a = MAX(0, msg_a - 15);
+        }
     }
 }
 
@@ -176,6 +193,7 @@ static void ini_apply_kv(const char *key, const char *val)
     else if (ieq(key, "colored_stars"))   COLORED_STARS   = (int)strtol(val, NULL, 10);
     else if (ieq(key, "star_size"))       STAR_SIZE       = (int)strtol(val, NULL, 10);
 	else if (ieq(key, "star_speed"))      STAR_SPEED      = (int)strtol(val, NULL, 10);
+    else if (ieq(key, "show_messages"))   SHOW_MESSAGES   = (int)strtol(val, NULL, 10);
 }
 
 static int CFG_Load(const char *path)
@@ -210,6 +228,7 @@ static void CFG_Check(void)
     COLORED_STARS   = BETWEEN(0, 1,        COLORED_STARS);
     STAR_SIZE       = BETWEEN(1, 16,       STAR_SIZE);
 	STAR_SPEED      = BETWEEN(-10, 10,     STAR_SPEED);
+    SHOW_MESSAGES   = BETWEEN(0, 1,        SHOW_MESSAGES);
 }
 
 static int CFG_Save(const char *path)
@@ -231,6 +250,8 @@ static int CFG_Save(const char *path)
     fprintf(f, "\n# Movement speed and direction (-10...0...10).");
 	fprintf(f, "\n# Negative = moving left, zero = static, positive = moving right.\n");
     fprintf(f, "star_speed %d\n", STAR_SPEED);
+	fprintf(f, "\n# Show messages and tips (0 = no, 1 = yes).\n");
+    fprintf(f, "show_messages %d\n", SHOW_MESSAGES);
     fclose(f);
     return 1;
 }
@@ -313,12 +334,6 @@ static void R_UpdateStars(star_t *arr, int count, int maxx, int maxy)
     }
 }
 
-static void R_DrawText(SDL_Renderer *ren, const char *text, int x, int y, Uint8 r, Uint8 g, Uint8 b, Uint8 a)
-{
-    SDL_SetRenderDrawColor(ren, r, g, b, a);
-    SDL_RenderDebugText(ren, x, y, text);
-}
-
 static void R_DrawStars(SDL_Renderer *ren, star_t *arr, int count)
 {
     // Clear to black once per frame (SDL renderer is a backbuffer)
@@ -356,18 +371,21 @@ static void R_DrawStars(SDL_Renderer *ren, star_t *arr, int count)
             SDL_RenderFillRect(ren, &r);
         }
     }
+}
 
-    // [PN] Example of text drawing.
-    // Replace with fade-in/fade-out effect or something (needs tick timer).
+static void R_DrawMessages(SDL_Renderer *ren)
+{
+    // TODO?
+    // if (!SHOW_MESSAGES)
+    //     return;
+
+    if (msg_text && msg_timeout)
     {
-        char stats[64];
-        R_DrawText(ren, "Starry Sky", 10, 10, 255, 255, 200, 255);
-        R_DrawText(ren, "F11: toggle fullscreen | SPACE: toggle colors", 10, 25, 180, 180, 255, 255);
-        snprintf(stats, sizeof(stats), "Stars: %d | Speed: %d", NUM_STARS, STAR_SPEED);
-        R_DrawText(ren, stats, 10, 40, 200, 255, 200, 255);
+        SDL_SetRenderDrawColor(ren, msg_r, msg_g, msg_b, msg_a);
+        SDL_SetRenderScale(ren, 1.5f, 1.5f);
+        SDL_RenderDebugText(ren, msg_x, msg_y, msg_text);
+        SDL_SetRenderScale(ren, 1.0f, 1.0f);
     }
-
-    SDL_RenderPresent(ren);
 }
 
 
@@ -392,6 +410,21 @@ static void I_ToggleFullScreen(SDL_Window *win, bool enable)
 
     // Update config variable
     FULLSCREEN = enable;
+}
+
+// TODO?
+// char stats[64];
+// R_DrawText(ren, "Starry Sky", 10, 10, 255, 255, 200, 255);
+// R_DrawText(ren, "F11: toggle fullscreen | SPACE: toggle colors", 10, 25, 180, 180, 255, 255);
+// R_DrawText(ren, stats, 10, 40, 200, 255, 200, 255);
+
+static void MSG_SetMessage(const char *message, int x, int y,
+                           int r, int g, int b, int a)
+{
+    msg_timeout = 4 * TICRATE;
+    msg_text = message;
+    msg_x = x; msg_y = y;
+    msg_r = r; msg_g = g; msg_b = b; msg_a = a;
 }
 
 
@@ -493,6 +526,13 @@ int main(int argc, char **argv)
                         // Quit
                         running = false;
                     }
+                    else if (sc == SDL_SCANCODE_F8)
+                    {
+                        // Toggle messages
+                        SHOW_MESSAGES ^= 1;
+                        MSG_SetMessage(SHOW_MESSAGES ? "Messages ON" : "Messages OFF",
+                                       0, 0, 192, 192, 192, 255);
+                    }
                     else if ( sc == SDL_SCANCODE_F11 || ((sc == SDL_SCANCODE_RETURN || sc == SDL_SCANCODE_KP_ENTER) && (mods & SDL_KMOD_ALT)))
                     {
                         // Toggle full screen
@@ -503,36 +543,50 @@ int main(int argc, char **argv)
                     {
                         // Toggle colored stars
                         COLORED_STARS ^= 1;
+                        MSG_SetMessage(COLORED_STARS ? "Colored stars" : "Grayscale stars",
+                                       0, 0, 192, 192, 192, 255);
                     }
-                    else if (sc == SDL_SCANCODE_COMMA && STAR_SIZE > 0)
+                    else if (sc == SDL_SCANCODE_COMMA && STAR_SIZE > 1)
                     {
                         // Decrease star size
                         STAR_SIZE--;
+                        snprintf(msg_buffer, sizeof(msg_buffer), "Star size: %d", STAR_SIZE);
+                        MSG_SetMessage(msg_buffer, 0, 0, 192, 192, 192, 255);
                     }
-                    else if (sc == SDL_SCANCODE_PERIOD && STAR_SIZE < 17)
+                    else if (sc == SDL_SCANCODE_PERIOD && STAR_SIZE < 16)
                     {
                         // Increase star size
                         STAR_SIZE++;
+                        snprintf(msg_buffer, sizeof(msg_buffer), "Star size: %d", STAR_SIZE);
+                        MSG_SetMessage(msg_buffer, 0, 0, 192, 192, 192, 255);
                     }
                     else if (sc == SDL_SCANCODE_UP && NUM_STARS < MAXSTARS)
                     {
                         // Increase amount of stars
                         NUM_STARS++;
+                        snprintf(msg_buffer, sizeof(msg_buffer), "Stars: %d", NUM_STARS);
+                        MSG_SetMessage(msg_buffer, 0, 0, 192, 192, 192, 255);
                     }
                     else if (sc == SDL_SCANCODE_DOWN && NUM_STARS > 0)
                     {
                         // Decrease amount of stars
                         NUM_STARS--;
+                        snprintf(msg_buffer, sizeof(msg_buffer), "Stars: %d", NUM_STARS);
+                        MSG_SetMessage(msg_buffer, 0, 0, 192, 192, 192, 255);
                     }
                     else if (sc == SDL_SCANCODE_RIGHT && STAR_SPEED < 10)
                     {
                         // Increase movement speed
                         STAR_SPEED++;
+                        snprintf(msg_buffer, sizeof(msg_buffer), "Speed: %d", STAR_SPEED);
+                        MSG_SetMessage(msg_buffer, 0, 0, 192, 192, 192, 255);
                     }
                     else if (sc == SDL_SCANCODE_LEFT && STAR_SPEED > -10)
                     {
                         // Decrease movement speed
                         STAR_SPEED--;
+                        snprintf(msg_buffer, sizeof(msg_buffer), "Speed: %d", STAR_SPEED);
+                        MSG_SetMessage(msg_buffer, 0, 0, 192, 192, 192, 255);
                     }
 
                     break;
@@ -558,6 +612,9 @@ int main(int argc, char **argv)
         // Update and draw!
         R_UpdateStars(stars, NUM_STARS, render_w, render_h);
         R_DrawStars(ren, stars, NUM_STARS);
+        R_DrawMessages(ren);
+
+        SDL_RenderPresent(ren);
 
         if (DELAY_MS > 0)
             SDL_Delay((Uint32)DELAY_MS);
