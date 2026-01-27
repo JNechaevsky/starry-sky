@@ -293,6 +293,12 @@ static void R_UpdateStars(star_t *arr, int count, int maxx, int maxy)
     }
 }
 
+static void R_DrawText(SDL_Renderer *ren, const char *text, int x, int y, Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+{
+    SDL_SetRenderDrawColor(ren, r, g, b, a);
+    SDL_RenderDebugText(ren, x, y, text);
+}
+
 static void R_DrawStars(SDL_Renderer *ren, star_t *arr, int count)
 {
     // Clear to black once per frame (SDL renderer is a backbuffer)
@@ -329,6 +335,16 @@ static void R_DrawStars(SDL_Renderer *ren, star_t *arr, int count)
             SDL_FRect r = { (float)arr[i].x, (float)arr[i].y, 1.0f, 1.0f };
             SDL_RenderFillRect(ren, &r);
         }
+    }
+
+    // [PN] Example of text drawing.
+    // Replace with fade-in/fade-out effect or something (needs tick timer).
+    {
+        char stats[64];
+        R_DrawText(ren, "Starry Sky", 10, 10, 255, 255, 200, 255);
+        R_DrawText(ren, "F11: toggle fullscreen | SPACE: toggle colors", 10, 25, 180, 180, 255, 255);
+        snprintf(stats, sizeof(stats), "Stars: %d | Speed: %d", NUM_STARS, STAR_SPEED);
+        R_DrawText(ren, stats, 10, 40, 200, 255, 200, 255);
     }
 
     SDL_RenderPresent(ren);
