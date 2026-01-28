@@ -571,7 +571,7 @@ int main(int argc, char **argv)
                     {
                         // Toggle FPS counter
                         SHOW_FPS ^= 1;
-                        MSG_SetMessage(SHOW_MESSAGES ? "FPS counter ON" : "FPS counter OFF",
+                        MSG_SetMessage(SHOW_FPS ? "FPS counter ON" : "FPS counter OFF",
                                        0, 0, 96, 176, 255, 255);
                     }
                     else if ( sc == SDL_SCANCODE_F11 || ((sc == SDL_SCANCODE_RETURN || sc == SDL_SCANCODE_KP_ENTER) && (mods & SDL_KMOD_ALT)))
