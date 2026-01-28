@@ -51,7 +51,6 @@
 //    cl /O2 /MT /DNDEBUG /I "%VCPKG_ROOT%\installed\x64-windows-static-release\include" stars.c resource.res /link /SUBSYSTEM:WINDOWS /LIBPATH:"%VCPKG_ROOT%\installed\x64-windows-static-release\lib" SDL3-static.lib user32.lib gdi32.lib winmm.lib shell32.lib advapi32.lib ole32.lib oleaut32.lib setupapi.lib cfgmgr32.lib imm32.lib version.lib
 
 
-
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,6 +65,13 @@
 #define BETWEEN(l, u, x) (((x) < (l)) ? (l) : ((x) > (u)) ? (u) : (x))
 #define MAXSTARS 500
 
+
+static SDL_Window *sdl_window;            // program window created by SDL
+static SDL_Renderer *sdl_renderer;        // renderer created by SDL
+static int render_w = 800;                // initial window width
+static int render_h = 600;                // initial window height
+static uint32_t m_rand_seed = 1;          // initial random seed
+
 #define TICRATE 35                        // tics in second (as in Doom)
 #define TIC_DURATION_MS (1000 / TICRATE)  // ~28.57 ms per tic
 static Uint64 gametic = 0;                // tic counter
@@ -78,17 +84,6 @@ static float msg_x, msg_y;                // x and y coords on the screen
 static Uint8 msg_r, msg_g, msg_b;         // RGB colors
 static Uint8 msg_a;                       // amount of alpha blending
 
-// ------------------------- Parameters (configurable) -------------------------
-static int FULLSCREEN       = 1;     // full screen mode
-static int NUM_STARS        = 100;   // number of stars (0..MAXSTARS)
-static int DELAY_MS         = 15;    // delay between frames (ms)
-static int BRIGHTNESS_STEP  = 1;     // brightness decrement per frame (1..255)
-static int COLORED_STARS    = 1;     // 1 = random RGB, 0 = grayscale
-static int STAR_SIZE        = 3;     // size of the star (1...16)
-static int STAR_SPEED       = -3;    // movement speed and direction (-10...0...10)
-static int SHOW_MESSAGES    = 1;     // 1 = show messages and tips
-// -----------------------------------------------------------------------------
-
 typedef struct
 {
     float x, y;            // floats for smoother movement
@@ -99,9 +94,17 @@ typedef struct
 
 static star_t stars[MAXSTARS];
 
-static int render_w = 800;
-static int render_h = 600;
-static uint32_t m_rand_seed = 1;
+
+// ------------------------- Parameters (configurable) -------------------------
+static int FULLSCREEN       = 1;     // full screen mode
+static int NUM_STARS        = 100;   // number of stars (0..MAXSTARS)
+static int DELAY_MS         = 15;    // delay between frames (ms)
+static int BRIGHTNESS_STEP  = 1;     // brightness decrement per frame (1..255)
+static int COLORED_STARS    = 1;     // 1 = random RGB, 0 = grayscale
+static int STAR_SIZE        = 3;     // size of the star (1...16)
+static int STAR_SPEED       = -3;    // movement speed and direction (-10...0...10)
+static int SHOW_MESSAGES    = 1;     // 1 = show messages and tips
+// -----------------------------------------------------------------------------
 
 
 // -----------------------------------------------------------------------------
@@ -192,7 +195,7 @@ static void ini_apply_kv(const char *key, const char *val)
     else if (ieq(key, "brightness_step")) BRIGHTNESS_STEP = (int)strtol(val, NULL, 10);
     else if (ieq(key, "colored_stars"))   COLORED_STARS   = (int)strtol(val, NULL, 10);
     else if (ieq(key, "star_size"))       STAR_SIZE       = (int)strtol(val, NULL, 10);
-	else if (ieq(key, "star_speed"))      STAR_SPEED      = (int)strtol(val, NULL, 10);
+    else if (ieq(key, "star_speed"))      STAR_SPEED      = (int)strtol(val, NULL, 10);
     else if (ieq(key, "show_messages"))   SHOW_MESSAGES   = (int)strtol(val, NULL, 10);
 }
 
@@ -227,7 +230,7 @@ static void CFG_Check(void)
     BRIGHTNESS_STEP = BETWEEN(1, 255,      BRIGHTNESS_STEP);
     COLORED_STARS   = BETWEEN(0, 1,        COLORED_STARS);
     STAR_SIZE       = BETWEEN(1, 16,       STAR_SIZE);
-	STAR_SPEED      = BETWEEN(-10, 10,     STAR_SPEED);
+    STAR_SPEED      = BETWEEN(-10, 10,     STAR_SPEED);
     SHOW_MESSAGES   = BETWEEN(0, 1,        SHOW_MESSAGES);
 }
 
@@ -248,9 +251,9 @@ static int CFG_Save(const char *path)
     fprintf(f, "\n# Define star size. (1...16)\n");
     fprintf(f, "star_size %d\n",       STAR_SIZE);
     fprintf(f, "\n# Movement speed and direction (-10...0...10).");
-	fprintf(f, "\n# Negative = moving left, zero = static, positive = moving right.\n");
+    fprintf(f, "\n# Negative = moving left, zero = static, positive = moving right.\n");
     fprintf(f, "star_speed %d\n", STAR_SPEED);
-	fprintf(f, "\n# Show messages and tips (0 = no, 1 = yes).\n");
+    fprintf(f, "\n# Show messages and tips (0 = no, 1 = yes).\n");
     fprintf(f, "show_messages %d\n", SHOW_MESSAGES);
     fclose(f);
     return 1;
@@ -276,104 +279,104 @@ static void R_RandomizeStarColor(short *r, short *g, short *b)
     }
 }
 
-static void R_InitStars(star_t *arr, int count, int maxx, int maxy)
+static void R_InitStars(int count, int maxx, int maxy)
 {
     if (maxx <= 0 || maxy <= 0) return;
 
     for (int i = 0; i < count; i++)
     {
-        arr[i].x = (float)(M_RealRandom() % maxx);
-        arr[i].y = (float)(M_RealRandom() % maxy);
-        arr[i].speed = 0.1f + ((M_RealRandom() % 100) / 50.0f); 
-        arr[i].brightness = M_RealRandom() % 256;
-        R_RandomizeStarColor(&arr[i].r, &arr[i].g, &arr[i].b);
+        stars[i].x = (float)(M_RealRandom() % maxx);
+        stars[i].y = (float)(M_RealRandom() % maxy);
+        stars[i].speed = 0.1f + ((M_RealRandom() % 100) / 50.0f); 
+        stars[i].brightness = M_RealRandom() % 256;
+        R_RandomizeStarColor(&stars[i].r, &stars[i].g, &stars[i].b);
     }
 }
 
-static void R_UpdateStars(star_t *arr, int count, int maxx, int maxy)
+static void R_UpdateStars(int count, int maxx, int maxy)
 {
     if (maxx <= 0 || maxy <= 0) return;
 
     for (int i = 0; i < count; i++)
     {
         // Movement: global speed * star-specific coefficient / fine-tuning
-        arr[i].x += ((float)STAR_SPEED * arr[i].speed) / 6;
+        stars[i].x += ((float)STAR_SPEED * stars[i].speed) / 6;
 
         // Brightness logics
-        if (arr[i].brightness > 0)
+        if (stars[i].brightness > 0)
         {
-            arr[i].brightness -= BRIGHTNESS_STEP;
-            if (arr[i].brightness < 0)
-                arr[i].brightness = 0;
+            stars[i].brightness -= BRIGHTNESS_STEP;
+            if (stars[i].brightness < 0)
+                stars[i].brightness = 0;
         }
 
         // Check for leaving screen bounds (on both sides) and fading out
-        const bool out_right = (STAR_SPEED > 0 && arr[i].x > (float)maxx);
-        const bool out_left  = (STAR_SPEED < 0 && arr[i].x < 0);
+        const bool out_right = (STAR_SPEED > 0 && stars[i].x > (float)maxx);
+        const bool out_left  = (STAR_SPEED < 0 && stars[i].x < 0);
         
-        if (out_right || out_left || arr[i].brightness <= 0)
+        if (out_right || out_left || stars[i].brightness <= 0)
         {
             // Respawn on the opposite side or at a random position
             if (out_right)
-			{
-				arr[i].x = 0;
-			}
+            {
+                stars[i].x = 0;
+            }
             else if (out_left)
-			{
-				arr[i].x = (float)maxx;
-			}
+            {
+                stars[i].x = (float)maxx;
+            }
             else
-			{
-				arr[i].x = (float)(M_RealRandom() % maxx);
-			}
-            arr[i].y = (float)(M_RealRandom() % maxy);
-            arr[i].speed = 0.5f + ((M_RealRandom() % 100) / 100.0f);
-            arr[i].brightness = 128 + (M_RealRandom() % 128); 
-            R_RandomizeStarColor(&arr[i].r, &arr[i].g, &arr[i].b);
+            {
+                stars[i].x = (float)(M_RealRandom() % maxx);
+            }
+            stars[i].y = (float)(M_RealRandom() % maxy);
+            stars[i].speed = 0.5f + ((M_RealRandom() % 100) / 100.0f);
+            stars[i].brightness = 128 + (M_RealRandom() % 128); 
+            R_RandomizeStarColor(&stars[i].r, &stars[i].g, &stars[i].b);
         }
     }
 }
 
-static void R_DrawStars(SDL_Renderer *ren, star_t *arr, int count)
+static void R_DrawStars(int count)
 {
     // Clear to black once per frame (SDL renderer is a backbuffer)
-    SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
-    SDL_RenderClear(ren);
+    SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 0, 255);
+    SDL_RenderClear(sdl_renderer);
 
     for (int i = 0; i < count; i++)
     {
-        const int br = BETWEEN(0, 255, arr[i].brightness);
+        const int br = BETWEEN(0, 255, stars[i].brightness);
 
         Uint8 rr, gg, bb;
         if (COLORED_STARS)
         {
             // scale base color by brightness
-            rr = (Uint8)((arr[i].r * br) / 255);
-            gg = (Uint8)((arr[i].g * br) / 255);
-            bb = (Uint8)((arr[i].b * br) / 255);
+            rr = (Uint8)((stars[i].r * br) / 255);
+            gg = (Uint8)((stars[i].g * br) / 255);
+            bb = (Uint8)((stars[i].b * br) / 255);
         }
         else
         {
             rr = gg = bb = (Uint8)br;
         }
 
-        SDL_SetRenderDrawColor(ren, rr, gg, bb, 255);
+        SDL_SetRenderDrawColor(sdl_renderer, rr, gg, bb, 255);
 
         if (STAR_SIZE > 1)
         {
-            SDL_FRect r = { (float)arr[i].x, (float)arr[i].y, (float)STAR_SIZE, (float)STAR_SIZE };
-            SDL_RenderFillRect(ren, &r);
+            SDL_FRect r = { (float)stars[i].x, (float)stars[i].y, (float)STAR_SIZE, (float)STAR_SIZE };
+            SDL_RenderFillRect(sdl_renderer, &r);
         }
         else
         {
             // 1x1 "pixel"
-            SDL_FRect r = { (float)arr[i].x, (float)arr[i].y, 1.0f, 1.0f };
-            SDL_RenderFillRect(ren, &r);
+            SDL_FRect r = { (float)stars[i].x, (float)stars[i].y, 1.0f, 1.0f };
+            SDL_RenderFillRect(sdl_renderer, &r);
         }
     }
 }
 
-static void R_DrawMessages(SDL_Renderer *ren)
+static void R_DrawMessages(void)
 {
     // TODO?
     // if (!SHOW_MESSAGES)
@@ -381,10 +384,10 @@ static void R_DrawMessages(SDL_Renderer *ren)
 
     if (msg_text && msg_timeout)
     {
-        SDL_SetRenderDrawColor(ren, msg_r, msg_g, msg_b, msg_a);
-        SDL_SetRenderScale(ren, 1.5f, 1.5f);
-        SDL_RenderDebugText(ren, msg_x, msg_y, msg_text);
-        SDL_SetRenderScale(ren, 1.0f, 1.0f);
+        SDL_SetRenderDrawColor(sdl_renderer, msg_r, msg_g, msg_b, msg_a);
+        SDL_SetRenderScale(sdl_renderer, 1.5f, 1.5f);
+        SDL_RenderDebugText(sdl_renderer, msg_x, msg_y, msg_text);
+        SDL_SetRenderScale(sdl_renderer, 1.0f, 1.0f);
     }
 }
 
@@ -393,10 +396,10 @@ static void R_DrawMessages(SDL_Renderer *ren)
 // Input
 // -----------------------------------------------------------------------------
 
-static void I_ToggleFullScreen(SDL_Window *win, bool enable)
+static void I_ToggleFullScreen(bool enable)
 {
     // Toggle fullscreen and handle cursor/screensaver
-    SDL_SetWindowFullscreen(win, enable); // SDL3 bool API
+    SDL_SetWindowFullscreen(sdl_window, enable); // SDL3 bool API
     if (enable)
     {
         SDL_HideCursor();
@@ -457,7 +460,7 @@ int main(int argc, char **argv)
     m_rand_seed = (uint32_t)time(NULL);
 
     // Read config file if exist. Otherwise, create a new one with defaults.
-    const int had_cfg = CFG_Load(CONFIG_FILENAME);
+    const bool had_cfg = CFG_Load(CONFIG_FILENAME);
     
     // Check config variables.
     CFG_Check();
@@ -474,32 +477,32 @@ int main(int argc, char **argv)
     }
 
     // Create window + renderer (let SDL pick the best driver)
-    SDL_Window *win = SDL_CreateWindow("Starry Sky", 800, 600, SDL_WINDOW_RESIZABLE);
-    if (!win)
+    sdl_window = SDL_CreateWindow("Starry Sky", 800, 600, SDL_WINDOW_RESIZABLE);
+    if (!sdl_window)
     {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         SDL_Quit();
         return 1;
     }
 
-    SDL_Renderer *ren = SDL_CreateRenderer(win, NULL);
-    if (!ren)
+    sdl_renderer = SDL_CreateRenderer(sdl_window, NULL);
+    if (!sdl_renderer)
     {
         SDL_Log("SDL_CreateRenderer failed: %s", SDL_GetError());
-        SDL_DestroyWindow(win);
+        SDL_DestroyWindow(sdl_window);
         SDL_Quit();
         return 1;
     }
 
-    SDL_GetRenderOutputSize(ren, &render_w, &render_h); // pixels
-    R_InitStars(stars, NUM_STARS, render_w, render_h);
+    SDL_GetRenderOutputSize(sdl_renderer, &render_w, &render_h); // pixels
+    R_InitStars(NUM_STARS, render_w, render_h);
 
     bool running = true;
     bool is_fullscreen = FULLSCREEN;
 
     // Start in full screen mode, if config variable set to 1
     if (is_fullscreen)
-    I_ToggleFullScreen(win, true);
+    I_ToggleFullScreen(true);
 
     while (running)
     {
@@ -537,7 +540,7 @@ int main(int argc, char **argv)
                     {
                         // Toggle full screen
                         is_fullscreen = !is_fullscreen;
-                        I_ToggleFullScreen(win, is_fullscreen);
+                        I_ToggleFullScreen(is_fullscreen);
                     }
                     else if (sc == SDL_SCANCODE_SPACE)
                     {
@@ -596,25 +599,25 @@ int main(int argc, char **argv)
                     if (ev.button.button == SDL_BUTTON_LEFT && ev.button.clicks >= 2)
                     {
                         is_fullscreen = !is_fullscreen;
-                        I_ToggleFullScreen(win, is_fullscreen);
+                        I_ToggleFullScreen(is_fullscreen);
                     }
                     break;
 
                 case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
                 case SDL_EVENT_WINDOW_RESIZED:
-                    SDL_GetRenderOutputSize(ren, &render_w, &render_h);
+                    SDL_GetRenderOutputSize(sdl_renderer, &render_w, &render_h);
                     // Update imideatelly on window resize
-                    R_InitStars(stars, NUM_STARS, render_w, render_h);
+                    R_InitStars(NUM_STARS, render_w, render_h);
                     break;
             }
         }
 
         // Update and draw!
-        R_UpdateStars(stars, NUM_STARS, render_w, render_h);
-        R_DrawStars(ren, stars, NUM_STARS);
-        R_DrawMessages(ren);
+        R_UpdateStars(NUM_STARS, render_w, render_h);
+        R_DrawStars(NUM_STARS);
+        R_DrawMessages();
 
-        SDL_RenderPresent(ren);
+        SDL_RenderPresent(sdl_renderer);
 
         if (DELAY_MS > 0)
             SDL_Delay((Uint32)DELAY_MS);
@@ -624,8 +627,8 @@ int main(int argc, char **argv)
     CFG_Save(CONFIG_FILENAME);
 
     // Shut down SDL subsystems
-    SDL_DestroyRenderer(ren);
-    SDL_DestroyWindow(win);
+    SDL_DestroyRenderer(sdl_renderer);
+    SDL_DestroyWindow(sdl_window);
     SDL_Quit();
     return 0;
 }
