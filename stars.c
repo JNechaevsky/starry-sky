@@ -52,8 +52,10 @@
 
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <windows.h>        // CP_UTF8
 
@@ -75,7 +77,7 @@ static uint32_t m_rand_seed = 1;          // initial random seed
 #define TICRATE 35                        // tics in second (as in Doom)
 #define TIC_DURATION_MS (1000 / TICRATE)  // ~28.57 ms per tic
 static Uint64 gametic = 0;                // tic counter
-static Uint64 last_tic_time = 0;          // time of last tic
+static Uint64 last_tic_time;              // time of last tic
 
 static char msg_buffer[64];               // buffer for combined message (text + variable)
 static const char *msg_text;              // text of the message
@@ -126,7 +128,7 @@ static void I_Ticker (void)
         {
             msg_timeout--;
             if (msg_timeout <= (Uint8)(1.5 * TICRATE) && msg_a > 0)
-                msg_a = MAX(0, msg_a - 15);
+                msg_a = (Uint8)MAX(0, (int)msg_a - 15);
         }
     }
 }
@@ -139,7 +141,7 @@ static void I_Ticker (void)
 // Check for command line parameters
 //
 
-static int M_CheckParm(const char *parm, int argc, char **argv)
+static bool M_CheckParm(const char *parm, int argc, char **argv)
 {
     for (int i = 1; i < argc; i++)
     {
@@ -209,7 +211,7 @@ static int CFG_Load(const char *path)
         trim(line);
         if (!line[0] || line[0] == '#' || line[0] == ';' || line[0] == '[') continue;
         char *p = line;
-        while (*p && *p != ' ' && *p != '	') p++;
+        while (*p && *p != ' ' && *p != '\t') p++;
         if (!*p) continue;
         *p = 0;
         char *key = line;
@@ -287,7 +289,7 @@ static void R_InitStars(int count, int maxx, int maxy)
     {
         stars[i].x = (float)(M_RealRandom() % maxx);
         stars[i].y = (float)(M_RealRandom() % maxy);
-        stars[i].speed = 0.1f + ((M_RealRandom() % 100) / 50.0f); 
+        stars[i].speed = 0.5f + ((M_RealRandom() % 100) / 100.0f);
         stars[i].brightness = M_RealRandom() % 256;
         R_RandomizeStarColor(&stars[i].r, &stars[i].g, &stars[i].b);
     }
@@ -515,6 +517,9 @@ int main(int argc, char **argv)
         SDL_Quit();
         return 1;
     }
+
+    // Initialize timer
+    last_tic_time = SDL_GetTicks();
 
     SDL_GetRenderOutputSize(sdl_renderer, &render_w, &render_h); // pixels
     R_InitStars(NUM_STARS, render_w, render_h);
