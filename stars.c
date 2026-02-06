@@ -103,7 +103,6 @@ static int BRIGHTNESS_STEP  = 1;     // brightness decrement per frame (1..255)
 static int COLORED_STARS    = 1;     // 1 = random RGB, 0 = grayscale
 static int STAR_SIZE        = 3;     // size of the star (1...16)
 static int STAR_SPEED       = -3;    // movement speed and direction (-10...0...10)
-static int SHOW_MESSAGES    = 1;     // 1 = show messages and tips
 static int SHOW_FPS         = 0;     // 1 = show fps counter
 // -----------------------------------------------------------------------------
 
@@ -197,7 +196,6 @@ static void ini_apply_kv(const char *key, const char *val)
     else if (ieq(key, "colored_stars"))   COLORED_STARS   = (int)strtol(val, NULL, 10);
     else if (ieq(key, "star_size"))       STAR_SIZE       = (int)strtol(val, NULL, 10);
     else if (ieq(key, "star_speed"))      STAR_SPEED      = (int)strtol(val, NULL, 10);
-    else if (ieq(key, "show_messages"))   SHOW_MESSAGES   = (int)strtol(val, NULL, 10);
     else if (ieq(key, "show_fps"))        SHOW_FPS        = (int)strtol(val, NULL, 10);
 }
 
@@ -233,7 +231,6 @@ static void CFG_Check(void)
     COLORED_STARS   = BETWEEN(0, 1,        COLORED_STARS);
     STAR_SIZE       = BETWEEN(1, 16,       STAR_SIZE);
     STAR_SPEED      = BETWEEN(-10, 10,     STAR_SPEED);
-    SHOW_MESSAGES   = BETWEEN(0, 1,        SHOW_MESSAGES);
     SHOW_FPS        = BETWEEN(0, 1,        SHOW_FPS);
 }
 
@@ -256,8 +253,6 @@ static int CFG_Save(const char *path)
     fprintf(f, "\n# Movement speed and direction (-10...0...10).");
     fprintf(f, "\n# Negative = moving left, zero = static, positive = moving right.\n");
     fprintf(f, "star_speed %d\n", STAR_SPEED);
-    fprintf(f, "\n# Show messages and tips (0 = no, 1 = yes).\n");
-    fprintf(f, "show_messages %d\n", SHOW_MESSAGES);
     fprintf(f, "\n# Show FPS counter (0 = no, 1 = yes).\n");
     fprintf(f, "show_fps %d\n", SHOW_FPS);
     fclose(f);
@@ -383,10 +378,6 @@ static void R_DrawStars(int count)
 
 static void R_DrawMessages(void)
 {
-    // TODO?
-    // if (!SHOW_MESSAGES)
-    //     return;
-
     if (msg_text && msg_timeout)
     {
         SDL_SetRenderDrawColor(sdl_renderer, msg_r, msg_g, msg_b, msg_a);
@@ -559,13 +550,6 @@ int main(int argc, char **argv)
                     {
                         // Quit
                         running = false;
-                    }
-                    else if (sc == SDL_SCANCODE_F8)
-                    {
-                        // Toggle messages
-                        SHOW_MESSAGES ^= 1;
-                        MSG_SetMessage(SHOW_MESSAGES ? "Messages ON" : "Messages OFF",
-                                       0, 0, 96, 176, 255, 255);
                     }
                     else if (sc == SDL_SCANCODE_F5)
                     {
